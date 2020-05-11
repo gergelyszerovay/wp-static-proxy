@@ -68,7 +68,7 @@ On the admin interface you can:
 - Delete HTML files, cached redirects and 404 errors
 - Clear all content from the cache
 
-How to protect your visitors' privacy?
+## How to protect your visitors' privacy?
 
 Disclaimer: I’m a developer, not a lawyer
 
