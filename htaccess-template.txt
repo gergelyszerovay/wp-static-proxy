@@ -1,0 +1,262 @@
+AddDefaultCharset utf-8
+
+RewriteEngine On
+RewriteBase /
+
+# ----------
+# force SSL
+RewriteCond %{HTTPS} off
+RewriteRule ^/?(.*)$ [baseUrl]/$1 [R=301,END]
+
+# remove www.
+RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+RewriteRule ^(.*)$ [baseUrl]/$1 [R=301,END]
+
+# search redirect
+RewriteCond %{QUERY_STRING} \\?s=([^&]+) [NC]
+RewriteRule ^$ /search/?q=%1 [NC,R,END]
+
+# ----------
+# protect api endpoint
+RewriteCond %{REQUEST_URI} ^/cache-admin/(.*)$
+RewriteCond %{REQUEST_URI} !^/cache-admin/[adminKey]/(.*)$
+RewriteRule ^(.*)$ - [R=404,END]
+
+# ----------
+# block:
+# ^\.|/\. file and directory names starting with dot
+# files containing:
+# - .php
+# - wp-admin
+# paths starting with:
+# - /admin
+# - /wp-json (WP REST interface)
+RewriteRule (^\.|/\.|\.php|wp-admin|^/admin|^/wp-json) - [R=404,END]
+
+# ----------
+# url deeper than 10 directory => 404
+RewriteRule [^/]+/[^/]+/[^/]+/[^/]+/[^/]+/[^/]+/[^/]+/[^/]+/[^/]+/[^/]+/.+$ - [R=404,END]
+
+# ----------
+# 404 cache
+RewriteRule __404__ - [R=404,END]
+
+RewriteCond %{REQUEST_URI} ^/(.*)$
+RewriteCond %{DOCUMENT_ROOT}/cache-404/%1.__404__ -f
+RewriteRule (.*)$ - [R=404,END]
+
+# ----------
+# / url
+
+RewriteCond %{HTTP:Accept-encoding} gzip
+RewriteCond %{REQUEST_URI} ^/$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/index.html.gz -f
+RewriteRule ^(.*)$ cache-content/index.html.gz [END]
+
+RewriteCond %{REQUEST_URI} ^/$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/index.html -f
+RewriteRule ^(.*)$ cache-content/index.html [END]
+
+# ----------
+# /search
+
+RewriteCond %{HTTP:Accept-encoding} gzip
+RewriteCond %{REQUEST_URI} ^/search
+RewriteCond %{DOCUMENT_ROOT}/cache-content/search.html.gz -f
+RewriteRule ^(.*)$ cache-content/search.html.gz [QSA,END]
+
+RewriteCond %{REQUEST_URI} ^/$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/search.html -f
+RewriteRule ^(.*)$ cache-content/search.html [QSA,END]
+
+# ----------
+# .html files without extension
+
+RewriteCond %{HTTP:Accept-encoding} gzip
+RewriteCond %{REQUEST_URI} ^/(.*)$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/%1.html.gz -f
+RewriteRule ^(.*)$ cache-content/$1.html.gz [END]
+
+RewriteCond %{REQUEST_URI} ^/(.*)$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/%1.html -f
+RewriteRule ^(.*)$ cache-content/$1.html [END]
+
+# ----------
+# other files with extension
+
+RewriteCond %{HTTP:Accept-encoding} gzip
+RewriteCond %{REQUEST_URI} ^/(.*)(html|json|xml|css|js|svg|ico|ttf|otf|eot)$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/%1%2.gz -f
+RewriteRule (.+)$ cache-content/$1.gz [END]
+
+RewriteCond %{REQUEST_URI} ^/(.*)$
+RewriteCond %{DOCUMENT_ROOT}/cache-content/%1 -f
+RewriteRule (.*)$ cache-content/$1 [END]
+
+# ----------
+# get file from origin
+RewriteCond %{REQUEST_URI} !^/cache$
+RewriteRule ^(.*)$ cache.php?f=$1&a=request [B,END]
+
+# debug
+#RewriteRule (.*)$ http://xxx.local%{DOCUMENT_ROOT}/cache-content/%1 [R=301,END]
+
+# ----------
+# add gzip headers when a precompressed file used
+
+<Files *.html.gz>
+    AddType "text/html" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.json.gz>
+    AddType "application/json" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.xml.gz>
+    AddType "text/xml" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.css.gz>
+    AddType "text/css" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.js.gz>
+    AddType "text/javascript" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.svg.gz>
+    AddType "image/svg" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.ico.gz>
+    AddType "image/x-icon" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.ttf.gz>
+    AddType "font/ttf" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.otf.gz>
+    AddType "font/otf" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+<Files *.eot.gz>
+    AddType "application/vnd.ms-fontobject" .gz
+    AddEncoding gzip .gz
+    Header append Vary Accept-Encoding
+    Header append X-Precompressed static
+</Files>
+
+# ----------
+# page speed optimizations
+
+<IfModule mod_headers.c>
+    # etags fix
+    Header unset Etag
+    FileETag none
+
+    # enable keep-alive
+    Header set Connection keep-alive
+</IfModule>
+
+# cache control headers
+<filesMatch ".(webp|png|jpg|jpeg|svg|gif|ico|css|js|pdf|woff|woff2|ttf|otf|eot)$">
+    Header set Cache-Control "max-age=31557600, public"
+</filesMatch>
+
+# set expirations
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    # images
+    ExpiresByType image/webp "access 1 year"
+    ExpiresByType image/png "access 1 year"
+    ExpiresByType image/jpg "access 1 year"
+    ExpiresByType image/jpeg "access 1 year"
+    ExpiresByType image/svg "access 1 year"
+    ExpiresByType image/svg+xml "access 1 year"
+    ExpiresByType image/gif "access 1 year"
+    ExpiresByType image/x-icon "access 1 year"
+
+    # css, js
+    ExpiresByType text/css "access 1 year"
+    ExpiresByType application/javascript "access 1 year"
+    ExpiresByType application/x-javascript "access 1 year"
+    ExpiresByType text/javascript "access 1 year"
+
+    # pdf
+    ExpiresByType application/pdf "access 1 month"
+
+    # web fonts
+    ExpiresByType font/woff "access 1 year"
+    ExpiresByType application/woff "access 1 year"
+    ExpiresByType font/woff2 "access 1 year"
+    ExpiresByType application/woff2 "access 1 year"
+    ExpiresByType font/ttf "access 1 year"
+    ExpiresByType application/x-font-ttf "access 1 year"
+    ExpiresByType application/x-font-truetype "access 1 year"
+    ExpiresByType font/otf "access 1 year"
+    ExpiresByType application/x-font-opentype "access 1 year"
+    ExpiresByType font/eot "access 1 year"
+    ExpiresByType application/vnd.ms-fontobject "access 1 year"
+
+    ExpiresDefault "access 1 hour"
+</IfModule>
+
+# gzip/deflate compression
+#<IfModule mod_deflate.c>
+#    # html, xml, json
+#    AddOutputFilterByType DEFLATE text/html
+#    AddOutputFilterByType DEFLATE text/plain
+#    AddOutputFilterByType DEFLATE text/xml
+#    AddOutputFilterByType DEFLATE application/xhtml+xml
+#    AddOutputFilterByType DEFLATE application/xml
+#    AddOutputFilterByType DEFLATE application/rss+xml
+#    AddOutputFilterByType DEFLATE application/json
+#
+#    # images
+#    AddOutputFilterByType DEFLATE image/svg
+#    AddOutputFilterByType DEFLATE image/svg+xml
+#    AddOutputFilterByType DEFLATE image/x-icon
+#
+#    # css, js
+#    AddOutputFilterByType DEFLATE application/javascript
+#    AddOutputFilterByType DEFLATE application/x-javascript
+#    AddOutputFilterByType DEFLATE text/css
+#
+#    # web fonts: ttf/otf/eot (woff and woff2 already compressed formats)
+#    AddOutputFilterByType DEFLATE font/ttf
+#    AddOutputFilterByType DEFLATE application/x-font-ttf
+#    AddOutputFilterByType DEFLATE application/x-font-truetype
+#    AddOutputFilterByType DEFLATE font/otf
+#    AddOutputFilterByType DEFLATE application/x-font-opentype
+#    AddOutputFilterByType DEFLATE font/eot
+#    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+#</IfModule>

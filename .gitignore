@@ -1,0 +1,7 @@
+.idea/
+.git/
+~*
+/0gitignore/
+/cache-*
+config.php
+.htaccess
